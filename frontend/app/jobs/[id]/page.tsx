@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
+import { ErrorToast } from "@/components/ErrorToast";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useJob, useJobItems } from "@/hooks/useJobs";
+import { useRetryItem } from "@/hooks/useRetryItem";
 import { getDisplayMessage } from "@/lib/api-error";
 
 export default function JobDetailPage() {
@@ -19,8 +22,10 @@ export default function JobDetailPage() {
 function JobDetail() {
   const params = useParams<{ id: string }>();
   const jobId = Number(params.id);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const jobQuery = useJob(jobId);
   const itemsQuery = useJobItems(jobId, jobQuery.data?.status);
+  const retryItem = useRetryItem(jobId);
 
   if (!Number.isFinite(jobId)) {
     return <p className="text-sm text-red-700">Invalid job id.</p>;
@@ -41,6 +46,15 @@ function JobDetail() {
   const job = jobQuery.data;
   if (!job) {
     return null;
+  }
+
+  async function handleRetry(itemId: number) {
+    setToastMessage(null);
+    try {
+      await retryItem.mutateAsync(itemId);
+    } catch (error) {
+      setToastMessage(getDisplayMessage(error));
+    }
   }
 
   return (
@@ -85,6 +99,7 @@ function JobDetail() {
                   <th className="px-4 py-3 font-medium">Category</th>
                   <th className="px-4 py-3 font-medium">Priority</th>
                   <th className="px-4 py-3 font-medium">Summary</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -100,6 +115,18 @@ function JobDetail() {
                     <td className="px-4 py-3 text-slate-700">{item.category ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{item.priority ?? "—"}</td>
                     <td className="max-w-sm px-4 py-3 text-slate-700">{item.summary ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {item.status === "failed" && (
+                        <button
+                          type="button"
+                          onClick={() => handleRetry(item.id)}
+                          disabled={retryItem.isPending}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -107,6 +134,10 @@ function JobDetail() {
           </div>
         )}
       </div>
+
+      {toastMessage && (
+        <ErrorToast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      )}
     </div>
   );
 }

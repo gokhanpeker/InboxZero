@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { AppShell } from "@/components/AppShell";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -24,7 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} antialiased font-sans`}>
         <Providers>
-          <AppShell>{children}</AppShell>
+          <ErrorBoundary>
+            <AppShell>{children}</AppShell>
+          </ErrorBoundary>
         </Providers>
       </body>
     </html>
