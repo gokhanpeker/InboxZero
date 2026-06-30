@@ -3,6 +3,10 @@
 from fastapi import FastAPI
 
 from app.core.config import settings
+from app.core.error_handlers import RequestIdMiddleware, register_exception_handlers
+from app.core.logging import setup_logging
+
+setup_logging(debug=settings.debug)
 
 app = FastAPI(
     title=settings.app_name,
@@ -10,6 +14,9 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
     openapi_url="/openapi.json" if settings.debug else None,
 )
+
+app.add_middleware(RequestIdMiddleware)
+register_exception_handlers(app)
 
 
 @app.get("/health")
