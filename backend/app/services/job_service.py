@@ -1,8 +1,9 @@
-"""Job creation and listing."""
+"""Job creation, listing, and item retry."""
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ConflictError, NotFoundError
 from app.models.enums import ItemStatus, JobStatus
 from app.models.item import Item
 from app.models.job import Job
@@ -73,3 +74,73 @@ def list_jobs(db: Session, user_id: int) -> list[dict]:
         select(Job).where(Job.user_id == user_id).order_by(Job.created_at.desc())
     ).all()
     return [_job_to_summary(db, job) for job in jobs]
+
+
+def _get_user_job(db: Session, user_id: int, job_id: int) -> Job:
+    """Load a job scoped to the authenticated user or raise 404."""
+    job = db.scalar(select(Job).where(Job.id == job_id, Job.user_id == user_id))
+    if job is None:
+        raise NotFoundError()
+    return job
+
+
+def get_job(db: Session, user_id: int, job_id: int) -> dict:
+    """Return a single job with rollup counts for the authenticated user."""
+    job = _get_user_job(db, user_id, job_id)
+    return _job_to_summary(db, job)
+
+
+def list_job_items(db: Session, user_id: int, job_id: int) -> list[dict]:
+    """Return items for a job owned by the authenticated user."""
+    _get_user_job(db, user_id, job_id)
+    items = db.scalars(
+        select(Item)
+        .where(Item.job_id == job_id, Item.user_id == user_id)
+        .order_by(Item.id)
+    ).all()
+    return [_item_to_dict(item) for item in items]
+
+
+def _item_to_dict(item: Item) -> dict:
+    return {
+        "id": item.id,
+        "job_id": item.job_id,
+        "input_text": item.input_text,
+        "status": item.status,
+        "attempts": item.attempts,
+        "category": item.category,
+        "priority": item.priority,
+        "sentiment": item.sentiment,
+        "summary": item.summary,
+        "suggested_reply": item.suggested_reply,
+        "error": item.error,
+        "updated_at": item.updated_at,
+    }
+
+
+def retry_failed_item(db: Session, user_id: int, item_id: int) -> dict:
+    """Re-enqueue a failed item after resetting its state."""
+    item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
+    if item is None:
+        raise NotFoundError()
+
+    if item.status != ItemStatus.FAILED.value:
+        raise ConflictError("Only failed items can be retried.")
+
+    item.status = ItemStatus.QUEUED.value
+    item.error = None
+    item.category = None
+    item.priority = None
+    item.sentiment = None
+    item.summary = None
+    item.suggested_reply = None
+
+    job = _get_user_job(db, user_id, item.job_id)
+    if job.status == JobStatus.COMPLETED.value:
+        job.status = JobStatus.PROCESSING.value
+
+    db.commit()
+    db.refresh(item)
+
+    enqueue_item(item.id)
+    return _item_to_dict(item)
