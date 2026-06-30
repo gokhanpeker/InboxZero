@@ -1,5 +1,7 @@
 # InboxZero
 
+[![CI](https://github.com/gokhanpeker/InboxZero/actions/workflows/ci.yml/badge.svg)](https://github.com/gokhanpeker/InboxZero/actions/workflows/ci.yml)
+
 AI batch triage for support messages — submit a batch, get a job back instantly, and watch a background worker classify each item with Google Gemini while the UI polls for live progress.
 
 Built for the Efsora Labs Full-Stack Challenge.
