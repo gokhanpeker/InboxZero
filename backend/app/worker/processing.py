@@ -8,6 +8,7 @@ from app.core.logging import get_logger
 from app.db.session import SessionLocal
 from app.models.enums import ItemStatus
 from app.models.item import Item
+from app.services.ai_service import analyze_message
 from app.services.rollup_service import update_job_rollup
 from app.worker.exceptions import AIPermanentError, AITransientError
 
@@ -16,17 +17,6 @@ logger = get_logger(__name__)
 SIMULATED_FAILURE_MESSAGE = "Simulated processing failure."
 GENERIC_FAILURE_MESSAGE = "Processing failed. Please retry."
 FAIL_TOKEN = "FAIL"
-
-
-def _analyze_message(input_text: str) -> dict[str, str]:
-    """Analyze message content. Replaced by Gemini integration in a later commit."""
-    return {
-        "category": "feature-request",
-        "priority": "medium",
-        "sentiment": "neutral",
-        "summary": input_text[:500],
-        "suggested_reply": "Thank you for your message. We will follow up shortly.",
-    }
 
 
 def _claim_item(db: Session, item_id: int) -> Item | None:
@@ -97,7 +87,7 @@ def process_item_once(item_id: int) -> None:
             return
 
         try:
-            result = _analyze_message(item.input_text)
+            result = analyze_message(item.input_text)
         except AITransientError:
             _reset_for_transient_retry(db, item)
             raise
