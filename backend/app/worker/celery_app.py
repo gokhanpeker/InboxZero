@@ -13,4 +13,9 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    worker_prefetch_multiplier=1,
+    broker_connection_retry_on_startup=True,
+    task_default_queue="default",
 )
+
+celery_app.autodiscover_tasks(["app.worker"])
