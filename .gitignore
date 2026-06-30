@@ -1,0 +1,53 @@
+# -----------------------------------------------------------------------------
+# Local-only markdown (never commit — these files stay on your machine only)
+# -----------------------------------------------------------------------------
+FULLSTACK_CHALLENGE_4.md
+INBOXZERO_IMPLEMENTATION_PLAN.md
+INBOXZERO_PROJECT_GUIDE.md
+CONTRIBUTING.md
+*.md
+!README.md
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Misc
+*.pem
+.cloudflared/
