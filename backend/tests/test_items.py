@@ -3,7 +3,6 @@
 from unittest.mock import patch
 
 from app.models.enums import ItemStatus, JobStatus
-from app.models.item import Item
 from tests.conftest import auth_headers, create_job_with_items, create_user, token_for_user
 
 
