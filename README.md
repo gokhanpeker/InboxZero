@@ -14,7 +14,7 @@ Built for the Efsora Labs Full-Stack Challenge.
 | Worker / queue | Celery 5 + Redis 7 |
 | Database | PostgreSQL 16 |
 | Auth | JWT (email/password, bcrypt) |
-| AI | Google Gemini (`gemini-2.0-flash`) |
+| AI | Google Gemini (`gemini-2.5-flash`) |
 | Frontend | Next.js 14 (App Router) + TanStack Query |
 | Containers | Docker Compose (api, worker, postgres, redis) |
 | Deployment | Vercel (frontend) + local backend via cloudflared tunnel |

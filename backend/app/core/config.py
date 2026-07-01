@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = Field(default=1440, alias="JWT_EXPIRE_MINUTES")
 
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.0-flash", alias="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
 
     max_retry_attempts: int = Field(default=3, alias="MAX_RETRY_ATTEMPTS")
     max_batch_size: int = Field(default=50, alias="MAX_BATCH_SIZE")
