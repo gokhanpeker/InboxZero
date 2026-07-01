@@ -14,7 +14,9 @@ import { JobProgressBar } from "@/components/ui/JobProgressBar";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useJob, useJobItems } from "@/hooks/useJobs";
 import { useRetryItem } from "@/hooks/useRetryItem";
+import { useTicker } from "@/hooks/useTicker";
 import { getDisplayMessage } from "@/lib/api-error";
+import { isStuckItem } from "@/lib/item-stale";
 import type { ItemResponse } from "@/lib/types";
 
 type ToastState = {
@@ -38,6 +40,7 @@ function JobDetail() {
   const jobQuery = useJob(jobId);
   const itemsQuery = useJobItems(jobId, jobQuery.data?.status);
   const retryItem = useRetryItem(jobId);
+  const now = useTicker();
 
   if (!Number.isFinite(jobId)) {
     return <Alert>Invalid job id.</Alert>;
@@ -66,6 +69,10 @@ function JobDetail() {
     } catch (error) {
       setToast({ message: getDisplayMessage(error), variant: "error" });
     }
+  }
+
+  function canRetry(item: ItemResponse): boolean {
+    return item.status === "failed" || isStuckItem(item, now);
   }
 
   return (
@@ -181,7 +188,7 @@ function JobDetail() {
                           Detail
                         </Button>
                       )}
-                      {item.status === "failed" && (
+                      {canRetry(item) && (
                         <Button
                           variant="secondary"
                           onClick={() => handleRetry(item.id)}
