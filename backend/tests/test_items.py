@@ -22,7 +22,7 @@ def test_retry_stuck_queued_item(client, db):
     body = response.json()
     assert body["status"] == "queued"
     assert body["attempts"] == 0
-    mock_enqueue.assert_called_once_with(item.id)
+    mock_enqueue.assert_called_once_with(item.id, skip_fail_simulation=True)
 
 
 def test_retry_stuck_processing_item(client, db):
@@ -44,7 +44,7 @@ def test_retry_stuck_processing_item(client, db):
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "queued"
-    mock_enqueue.assert_called_once_with(item.id)
+    mock_enqueue.assert_called_once_with(item.id, skip_fail_simulation=True)
 
 
 def test_retry_failed_item(client, db):
@@ -72,7 +72,7 @@ def test_retry_failed_item(client, db):
     assert body["status"] == "queued"
     assert body["attempts"] == 0
     assert body["error"] is None
-    mock_enqueue.assert_called_once_with(item.id)
+    mock_enqueue.assert_called_once_with(item.id, skip_fail_simulation=True)
 
 
 def test_retry_rejects_done_item(client, db):
