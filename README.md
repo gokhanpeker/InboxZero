@@ -7,6 +7,7 @@ AI batch triage for support messages — submit a batch, get a job back instantl
 Built for the Efsora Labs Full-Stack Challenge.
 
 **Live demo:** https://inbox-zero-green-phi.vercel.app (frontend on Vercel; API via cloudflared tunnel to local Docker stack during demo)
+**Demo video link** https://drive.google.com/file/d/1UsR0LOWWhpYKtOPSggirQ7OlSIgJjlRW/view?usp=sharing
 
 ## Stack
 
