@@ -6,6 +6,8 @@ AI batch triage for support messages — submit a batch, get a job back instantl
 
 Built for the Efsora Labs Full-Stack Challenge.
 
+**Live demo:** https://inbox-zero-green-phi.vercel.app (frontend on Vercel; API via cloudflared tunnel to local Docker stack during demo)
+
 ## Stack
 
 | Layer | Choice |
@@ -180,9 +182,9 @@ The challenge expects a live Vercel frontend talking to a locally running backen
 
    Use your real cloudflared URL (see backend steps below). No `NEXT_PUBLIC_` prefix.
 
-5. Click **Deploy**. When the build finishes, copy the production URL (e.g. `https://inboxzero-xxx.vercel.app`).
+5. Click **Deploy**. Production URL: **https://inbox-zero-green-phi.vercel.app**
 
-6. Add the live URL to this README submission checklist when ready.
+6. The API route handler (`app/api/[...path]/route.ts`) proxies `/api/*` to `BACKEND_TUNNEL_URL`. It strips `Content-Encoding` from backend responses so browsers do not hit `ERR_CONTENT_DECODING_FAILED` after gzip decompression in Node `fetch`.
 
 ### Option B — Vercel CLI
 
@@ -274,7 +276,7 @@ cd frontend && npm run lint && npx tsc --noEmit
 ## Submission checklist
 
 - [x] Repo link — https://github.com/gokhanpeker/InboxZero
-- [ ] Live Vercel URL
+- [x] Live Vercel URL — https://inbox-zero-green-phi.vercel.app
 - [x] Backend local + tunnel (`cloudflared tunnel --url http://localhost:8000`)
 - [x] Registration instructions (above)
 - [x] AI provider: Google Gemini (`gemini-2.5-flash`)
