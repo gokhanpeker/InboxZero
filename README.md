@@ -22,7 +22,7 @@ Built for the Efsora Labs Full-Stack Challenge.
 ## Architecture
 
 ```
-Browser → Next.js (Vercel) → /api/* rewrite → FastAPI (local tunnel)
+Browser → Next.js (Vercel) → /api/* route handler (fetch proxy) → FastAPI (tunnel)
                                               ↓ enqueue
                                          Celery worker → Gemini → PostgreSQL
                                               ↑
@@ -31,6 +31,7 @@ Browser → Next.js (Vercel) → /api/* rewrite → FastAPI (local tunnel)
 
 - **API** handles auth, batch submit, job/item reads, and manual retry. It never calls the AI directly.
 - **Worker** claims items from the queue, runs Gemini, writes results, and rolls up job status.
+- **Frontend** proxies `/api/*` through `frontend/app/api/[...path]/route.ts` (server-side `fetch` to `BACKEND_TUNNEL_URL` or `http://127.0.0.1:8000`).
 - **Postgres and Redis** stay on the internal Docker network — only the API is exposed on `127.0.0.1:8000`.
 
 ## Quick start (local)
@@ -73,6 +74,12 @@ Services:
 
 OpenAPI docs (`/docs`) are available only when `DEBUG=true`.
 
+Worker logs (debugging AI / queue issues):
+
+```bash
+docker compose logs worker -f
+```
+
 ### 3. Start the frontend
 
 ```bash
@@ -81,14 +88,16 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 — the Next.js dev server proxies `/api/*` to `http://localhost:8000`.
+Open http://localhost:3000 — the Next.js dev server proxies `/api/*` to `http://127.0.0.1:8000` via the route handler.
 
 ### 4. Try the flow
 
 1. Register and sign in.
-2. Go to **Submit batch** — paste messages (one per line) or upload a `.txt` / `.csv` file.
+2. Go to **Submit batch** — paste messages (one per line) or upload a `.txt` / `.csv` file. Sample files are in `samples/`.
 3. Open the job detail page and watch items move through `queued → processing → done`.
-4. Include the word `FAIL` in a message to simulate a failed item, then use **Retry**.
+4. Click **Detail** on a completed item to view full AI output and copy the draft reply.
+5. Include the word `FAIL` in a message to simulate a failed item on first processing, then use **Retry** (manual retry runs real AI and can succeed).
+6. If an item stays in `queued` or `processing` for more than **2 minutes**, a **Retry** button appears to re-enqueue it.
 
 ## Batch input
 
@@ -117,7 +126,7 @@ All protected routes require `Authorization: Bearer <token>`.
 | GET | `/jobs` | List your jobs with rollup counts |
 | GET | `/jobs/{id}` | Job detail |
 | GET | `/jobs/{id}/items` | Items for a job |
-| POST | `/items/{id}/retry` | Re-enqueue a failed item |
+| POST | `/items/{id}/retry` | Re-enqueue a failed or stuck item |
 
 Cross-user access returns **404** (not 403) to avoid resource enumeration.
 
@@ -126,8 +135,8 @@ Cross-user access returns **404** (not 403) to avoid resource enumeration.
 Three layers prevent duplicate or corrupt processing:
 
 1. **DB status guard** — the worker atomically claims an item only when `status ∈ {queued, failed}` and `attempts < MAX_RETRY_ATTEMPTS`. If the update affects zero rows, the task exits early.
-2. **Celery task deduplication** — each enqueue uses `task_id=item-{item_id}` so duplicate tasks for the same item are rejected by the broker.
-3. **Terminal write protection** — items already marked `done` are never overwritten. Manual retry resets a failed item to `queued`, clears its error/result fields, and re-enqueues.
+2. **Unique Celery task ids** — each enqueue uses `task_id=item-{item_id}-{timestamp}` so manual retries are not dropped by the broker.
+3. **Terminal write protection** — items already marked `done` are never overwritten. Manual retry resets state (`attempts=0`, clears error/AI fields) and re-enqueues.
 
 **Automatic retries (worker):**
 
@@ -136,12 +145,14 @@ Three layers prevent duplicate or corrupt processing:
 
 **Manual retry (API):**
 
-- `POST /items/{id}/retry` accepts only `failed` items owned by the authenticated user.
-- Resets status to `queued`, clears prior results, and re-enqueues the item.
+- `POST /items/{id}/retry` accepts `failed`, `queued`, or `processing` items owned by the authenticated user.
+- Resets `attempts` to `0`, clears prior results/errors, sets status to `queued`, and re-enqueues with `skip_fail_simulation=True`.
+- The UI shows **Retry** immediately for `failed` items, and for `queued`/`processing` items that have not updated in **2 minutes**.
 
 **Simulated failure (demo):**
 
-- If an item's text contains `FAIL`, the worker marks it failed with: `Simulated processing failure.`
+- On **automatic** first processing, if an item's text contains `FAIL`, the worker marks it failed with: `Simulated processing failure.`
+- On **manual retry**, the `FAIL` check is skipped and real AI processing runs.
 
 ## Deployment (Vercel + tunnel)
 
@@ -172,7 +183,7 @@ Copy the generated `*.trycloudflare.com` URL.
    BACKEND_TUNNEL_URL=https://your-tunnel.trycloudflare.com
    ```
 
-3. Deploy. Browser requests to `/api/*` are rewritten to your tunnel URL server-side.
+3. Deploy. Browser requests to `/api/*` are proxied to your tunnel URL server-side via the route handler.
 
 During demo: laptop on, Docker stack running, tunnel active.
 
@@ -190,14 +201,15 @@ uvicorn app.main:app --reload
 celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
 ```
 
-### Lint
+### Tests and lint
 
 ```bash
+# Backend
+cd backend && pip install -r requirements.txt && pytest tests/ -v
+cd backend && pip install ruff && ruff check .
+
 # Frontend
 cd frontend && npm run lint && npx tsc --noEmit
-
-# Backend (install ruff first)
-cd backend && pip install ruff && ruff check .
 ```
 
 ## Security notes
@@ -212,11 +224,26 @@ cd backend && pip install ruff && ruff check .
 
 ```
 ├── backend/          FastAPI app, Celery worker, Alembic migrations
-├── frontend/         Next.js UI
+├── frontend/         Next.js UI (includes /api route handler proxy)
+├── samples/          Example batch files for testing
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
 ```
+
+## Submission checklist
+
+- [x] Repo link — https://github.com/gokhanpeker/InboxZero
+- [ ] Live Vercel URL
+- [x] Backend local + tunnel (`cloudflared tunnel --url http://localhost:8000`)
+- [x] Registration instructions (above)
+- [x] AI provider: Google Gemini (`gemini-2.5-flash`)
+- [x] Queue/broker: Celery + Redis; retry & idempotency documented (above)
+- [x] `.env.example` committed
+- [x] Migration file(s) committed
+- [x] `docker compose up` brings up API + worker + DB + broker
+- [ ] Demo video link (2–5 min)
+- [x] No secrets committed
 
 ## License
 

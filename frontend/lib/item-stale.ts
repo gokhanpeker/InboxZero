@@ -1,6 +1,6 @@
 import type { ItemResponse } from "@/lib/types";
 
-/** Must match backend STALE_REQUEUE_SECONDS (default 120). */
+/** Frontend-only: show Retry for stuck queued/processing items after 2 minutes. */
 export const STALE_REQUEUE_MS = 2 * 60 * 1000;
 
 const STUCK_STATUSES = new Set(["queued", "processing"]);

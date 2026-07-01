@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InboxZero Frontend
 
-## Getting Started
+Next.js 14 (App Router) UI for the InboxZero batch triage challenge.
 
-First, run the development server:
+## Scripts
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm run build
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API proxy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Browser calls same-origin `/api/*`. The server route `app/api/[...path]/route.ts` forwards requests to:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `BACKEND_TUNNEL_URL` (Vercel / production), or
+- `http://127.0.0.1:8000` (local dev default)
 
-## Learn More
+Set `BACKEND_TUNNEL_URL` in Vercel project settings (server-side only — no `NEXT_PUBLIC_` prefix).
 
-To learn more about Next.js, take a look at the following resources:
+## Key pages
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Route | Purpose |
+|-------|---------|
+| `/login`, `/register` | Auth |
+| `/submit` | Batch submit (textarea or file upload) |
+| `/jobs` | Job list with live progress |
+| `/jobs/[id]` | Item table, Retry, Detail modal |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Related docs
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the root [README.md](../README.md) for full stack setup, deployment, and retry behavior.
