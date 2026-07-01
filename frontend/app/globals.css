@@ -2,26 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-slate-50 text-slate-900 antialiased;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@layer components {
+  .input-field {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100;
+  }
+
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .progress-bar {
+    @apply block appearance-none overflow-hidden rounded-full bg-slate-100;
+  }
+
+  .progress-bar::-webkit-progress-bar {
+    @apply rounded-full bg-slate-100;
+  }
+
+  .progress-bar::-webkit-progress-value {
+    @apply rounded-full bg-emerald-500 transition-all duration-500;
+  }
+
+  .progress-bar::-moz-progress-bar {
+    @apply rounded-full bg-emerald-500 transition-all duration-500;
   }
 }

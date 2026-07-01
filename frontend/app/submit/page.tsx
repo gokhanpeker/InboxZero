@@ -1,9 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 
 import { RequireAuth } from "@/components/RequireAuth";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useSubmitBatch } from "@/hooks/useSubmitBatch";
 import { getDisplayMessage } from "@/lib/api-error";
 import {
@@ -12,6 +15,11 @@ import {
   parseTextareaInput,
   readUploadedFile,
 } from "@/lib/batch-parse";
+
+const SAMPLE_MESSAGES = `I was charged twice for my subscription this month
+The export button crashes when I upload a large CSV FAIL
+Can you add dark mode to the dashboard?
+Love the new onboarding flow — great work!`;
 
 export default function SubmitPage() {
   return (
@@ -28,9 +36,27 @@ function SubmitBatchForm() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const lineCount = useMemo(() => {
+    if (!textareaValue.trim()) {
+      return 0;
+    }
+    return textareaValue.split(/\r?\n/).filter((line) => line.trim()).length;
+  }, [textareaValue]);
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     setSelectedFile(file);
+    setError(null);
+  }
+
+  function clearFile() {
+    setSelectedFile(null);
+    setError(null);
+  }
+
+  function loadSample() {
+    setTextareaValue(SAMPLE_MESSAGES);
+    setSelectedFile(null);
     setError(null);
   }
 
@@ -54,58 +80,96 @@ function SubmitBatchForm() {
     }
   }
 
-  return (
-    <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Submit batch</h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Paste messages or upload a .txt/.csv file. Up to {MAX_BATCH_SIZE} items per batch.
-      </p>
+  const canSubmit =
+    !submitBatch.isPending && (selectedFile !== null || textareaValue.trim().length > 0);
 
-      <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+  return (
+    <div className="max-w-3xl space-y-8">
+      <PageHeader
+        title="Submit batch"
+        description="Paste support messages or upload a file. Processing starts immediately — you can track progress on the job page."
+      />
+
+      <Alert variant="info">
+        <strong className="font-medium">How it works:</strong> one message per line in the text box,
+        or upload <code className="rounded bg-sky-100 px-1">.txt</code> /{" "}
+        <code className="rounded bg-sky-100 px-1">.csv</code>. Max {MAX_BATCH_SIZE} messages per
+        batch. Include <code className="rounded bg-sky-100 px-1">FAIL</code> in a message to
+        simulate a processing error for demos.
+      </Alert>
+
+      <form className="card space-y-6 p-6" onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="file" className="block text-sm font-medium text-slate-700">
-            File upload (optional)
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="file" className="text-sm font-medium text-slate-700">
+              File upload
+            </label>
+            {selectedFile && (
+              <button
+                type="button"
+                onClick={clearFile}
+                className="text-xs font-medium text-slate-600 hover:text-slate-900"
+              >
+                Remove file
+              </button>
+            )}
+          </div>
           <input
             id="file"
             type="file"
             accept=".txt,.csv,text/plain,text/csv"
             onChange={handleFileChange}
-            className="mt-2 block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-700"
+            className="mt-2 block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
           />
-          <p className="mt-2 text-xs text-slate-500">
-            Upload takes priority over the textarea when both are provided.
-          </p>
+          {selectedFile ? (
+            <p className="mt-2 text-xs text-emerald-700">
+              Using file: <span className="font-medium">{selectedFile.name}</span> (textarea
+              disabled)
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-slate-500">Optional — takes priority over the text box.</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="messages" className="block text-sm font-medium text-slate-700">
-            Messages
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="messages" className="text-sm font-medium text-slate-700">
+              Messages
+            </label>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                {selectedFile ? "—" : `${lineCount} / ${MAX_BATCH_SIZE} messages`}
+              </span>
+              {!selectedFile && (
+                <button
+                  type="button"
+                  onClick={loadSample}
+                  className="font-medium text-slate-700 hover:text-slate-900"
+                >
+                  Load sample
+                </button>
+              )}
+            </div>
+          </div>
           <textarea
             id="messages"
-            rows={12}
+            rows={10}
             value={textareaValue}
             onChange={(event) => setTextareaValue(event.target.value)}
-            placeholder="One message per line"
+            placeholder={`Billing issue with my last invoice\nApp crashes when I click Export\nFeature request: dark mode`}
             disabled={Boolean(selectedFile)}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2 disabled:bg-slate-100"
+            className="input-field mt-2 font-mono text-[13px] leading-relaxed"
           />
         </div>
 
-        {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <Alert>{error}</Alert>}
 
-        <button
-          type="submit"
-          disabled={submitBatch.isPending}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-        >
-          {submitBatch.isPending ? "Submitting..." : "Submit batch"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={!canSubmit}>
+            {submitBatch.isPending ? "Submitting..." : "Submit batch"}
+          </Button>
+          <p className="text-xs text-slate-500">You will be redirected to the job detail page.</p>
+        </div>
       </form>
     </div>
   );

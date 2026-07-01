@@ -4,12 +4,21 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
-import { ErrorToast } from "@/components/ErrorToast";
+import { Toast } from "@/components/ErrorToast";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { JobProgressBar } from "@/components/ui/JobProgressBar";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useJob, useJobItems } from "@/hooks/useJobs";
 import { useRetryItem } from "@/hooks/useRetryItem";
 import { getDisplayMessage } from "@/lib/api-error";
+
+type ToastState = {
+  message: string;
+  variant: "error" | "success";
+} | null;
 
 export default function JobDetailPage() {
   return (
@@ -22,25 +31,21 @@ export default function JobDetailPage() {
 function JobDetail() {
   const params = useParams<{ id: string }>();
   const jobId = Number(params.id);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
   const jobQuery = useJob(jobId);
   const itemsQuery = useJobItems(jobId, jobQuery.data?.status);
   const retryItem = useRetryItem(jobId);
 
   if (!Number.isFinite(jobId)) {
-    return <p className="text-sm text-red-700">Invalid job id.</p>;
+    return <Alert>Invalid job id.</Alert>;
   }
 
   if (jobQuery.isLoading) {
-    return <p className="text-sm text-slate-500">Loading job...</p>;
+    return <LoadingState message="Loading job details..." />;
   }
 
   if (jobQuery.isError) {
-    return (
-      <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-        {getDisplayMessage(jobQuery.error)}
-      </p>
-    );
+    return <Alert>{getDisplayMessage(jobQuery.error)}</Alert>;
   }
 
   const job = jobQuery.data;
@@ -48,83 +53,131 @@ function JobDetail() {
     return null;
   }
 
+  const isLive = job.status === "processing";
+
   async function handleRetry(itemId: number) {
-    setToastMessage(null);
+    setToast(null);
     try {
       await retryItem.mutateAsync(itemId);
+      setToast({ message: "Item queued for retry.", variant: "success" });
     } catch (error) {
-      setToastMessage(getDisplayMessage(error));
+      setToast({ message: getDisplayMessage(error), variant: "error" });
     }
   }
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Link href="/jobs" className="text-sm text-slate-600 hover:text-slate-900">
-            Back to jobs
-          </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-900">Job #{job.id}</h1>
+    <div className="space-y-8">
+      <div>
+        <Link
+          href="/jobs"
+          className="text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          ← Back to jobs
+        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            Job #{job.id}
+          </h1>
+          <StatusBadge status={job.status} />
+          {isLive && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+              Live updating
+            </span>
+          )}
         </div>
-        <StatusBadge status={job.status} />
+        <p className="mt-2 text-sm text-slate-600">
+          {job.total_items} message{job.total_items === 1 ? "" : "s"} in this batch.
+        </p>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-4">
-        <StatCard label="Queued" value={job.queued} />
-        <StatCard label="Processing" value={job.processing} />
-        <StatCard label="Done" value={job.done} />
-        <StatCard label="Failed" value={job.failed} />
+      <div className="card p-5">
+        <JobProgressBar done={job.done} failed={job.failed} total={job.total_items} />
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Queued" value={job.queued} />
+          <StatCard label="Processing" value={job.processing} />
+          <StatCard label="Done" value={job.done} />
+          <StatCard label="Failed" value={job.failed} />
+        </div>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-slate-900">Items</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900">Messages</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          AI category, priority, and draft replies appear when processing completes.
+        </p>
 
         {itemsQuery.isLoading && (
-          <p className="mt-4 text-sm text-slate-500">Loading items...</p>
+          <div className="mt-4">
+            <LoadingState message="Loading messages..." />
+          </div>
         )}
 
         {itemsQuery.isError && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {getDisplayMessage(itemsQuery.error)}
-          </p>
+          <div className="mt-4">
+            <Alert>{getDisplayMessage(itemsQuery.error)}</Alert>
+          </div>
         )}
 
         {itemsQuery.data && (
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <div className="card mt-4 overflow-x-auto">
+            <table className="min-w-[720px] divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-slate-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">Message</th>
                   <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Priority</th>
+                  <th className="px-4 py-3 font-medium">Triage</th>
                   <th className="px-4 py-3 font-medium">Summary</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                  <th className="px-4 py-3 font-medium">Draft reply</th>
+                  <th className="px-4 py-3 font-medium" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {itemsQuery.data.map((item) => (
-                  <tr key={item.id} className="align-top">
-                    <td className="max-w-xs px-4 py-3 text-slate-900">{item.input_text}</td>
+                  <tr key={item.id} className="align-top hover:bg-slate-50/50">
+                    <td className="max-w-[220px] px-4 py-3">
+                      <p className="line-clamp-3 text-slate-900" title={item.input_text}>
+                        {item.input_text}
+                      </p>
+                    </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status} />
                       {item.error && (
-                        <p className="mt-2 text-xs text-red-700">{item.error}</p>
+                        <p className="mt-2 text-xs leading-relaxed text-red-700">{item.error}</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{item.category ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{item.priority ?? "—"}</td>
-                    <td className="max-w-sm px-4 py-3 text-slate-700">{item.summary ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {item.category ? (
+                        <div className="space-y-1">
+                          <p className="capitalize">{item.category}</p>
+                          <p className="text-xs text-slate-500">
+                            {item.priority ?? "—"} · {item.sentiment ?? "—"}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="max-w-[200px] px-4 py-3 text-slate-700">
+                      <p className="line-clamp-3" title={item.summary ?? undefined}>
+                        {item.summary ?? "—"}
+                      </p>
+                    </td>
+                    <td className="max-w-[220px] px-4 py-3 text-slate-700">
+                      <p className="line-clamp-4" title={item.suggested_reply ?? undefined}>
+                        {item.suggested_reply ?? "—"}
+                      </p>
+                    </td>
                     <td className="px-4 py-3">
                       {item.status === "failed" && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="secondary"
                           onClick={() => handleRetry(item.id)}
                           disabled={retryItem.isPending}
-                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                          className="whitespace-nowrap px-3 py-1.5 text-xs"
                         >
                           Retry
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -135,8 +188,12 @@ function JobDetail() {
         )}
       </div>
 
-      {toastMessage && (
-        <ErrorToast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      {toast && (
+        <Toast
+          message={toast.message}
+          variant={toast.variant}
+          onDismiss={() => setToast(null)}
+        />
       )}
     </div>
   );
@@ -144,9 +201,9 @@ function JobDetail() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+    <div className="rounded-lg bg-slate-50 px-3 py-3 text-center">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
     </div>
   );
 }

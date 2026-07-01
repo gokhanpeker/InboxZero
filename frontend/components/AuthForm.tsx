@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { getDisplayMessage } from "@/lib/api-error";
 import { setToken } from "@/lib/auth";
@@ -38,20 +40,20 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
-  const title = mode === "login" ? "Sign in" : "Create account";
-  const submitLabel = mode === "login" ? "Sign in" : "Register";
+  const title = mode === "login" ? "Welcome back" : "Create your account";
+  const submitLabel = mode === "login" ? "Sign in" : "Create account";
   const alternateHref = mode === "login" ? "/register" : "/login";
   const alternateText =
     mode === "login" ? "Need an account? Register" : "Already have an account? Sign in";
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
+    <div className="card w-full p-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
       <p className="mt-2 text-sm text-slate-600">
-        AI batch triage for support messages.
+        AI batch triage for support messages — classify, prioritize, and draft replies.
       </p>
 
-      <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+      <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-slate-700">
             Email
@@ -63,7 +65,8 @@ export function AuthForm({ mode }: AuthFormProps) {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
+            className="input-field mt-1.5"
+            placeholder="you@company.com"
           />
         </div>
 
@@ -71,31 +74,41 @@ export function AuthForm({ mode }: AuthFormProps) {
           <label htmlFor="password" className="block text-sm font-medium text-slate-700">
             Password
           </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            required
-            minLength={8}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2"
-          />
+          {mode === "login" ? (
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="input-field mt-1.5"
+              placeholder="Your password"
+            />
+          ) : (
+            <input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="input-field mt-1.5"
+              placeholder="At least 8 characters"
+            />
+          )}
+          {mode === "register" && (
+            <p className="mt-1.5 text-xs text-slate-500">Minimum 8 characters.</p>
+          )}
         </div>
 
-        {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <Alert>{error}</Alert>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Please wait..." : submitLabel}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-slate-600">
