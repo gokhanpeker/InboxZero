@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 
 import { Toast } from "@/components/ErrorToast";
+import { ItemDetailModal } from "@/components/ItemDetailModal";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert } from "@/components/ui/Alert";
@@ -14,6 +15,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { useJob, useJobItems } from "@/hooks/useJobs";
 import { useRetryItem } from "@/hooks/useRetryItem";
 import { getDisplayMessage } from "@/lib/api-error";
+import type { ItemResponse } from "@/lib/types";
 
 type ToastState = {
   message: string;
@@ -32,6 +34,7 @@ function JobDetail() {
   const params = useParams<{ id: string }>();
   const jobId = Number(params.id);
   const [toast, setToast] = useState<ToastState>(null);
+  const [detailItem, setDetailItem] = useState<ItemResponse | null>(null);
   const jobQuery = useJob(jobId);
   const itemsQuery = useJobItems(jobId, jobQuery.data?.status);
   const retryItem = useRetryItem(jobId);
@@ -169,6 +172,15 @@ function JobDetail() {
                       </p>
                     </td>
                     <td className="px-4 py-3">
+                      {item.status === "done" && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => setDetailItem(item)}
+                          className="whitespace-nowrap px-3 py-1.5 text-xs"
+                        >
+                          Detail
+                        </Button>
+                      )}
                       {item.status === "failed" && (
                         <Button
                           variant="secondary"
@@ -187,6 +199,10 @@ function JobDetail() {
           </div>
         )}
       </div>
+
+      {detailItem && (
+        <ItemDetailModal item={detailItem} onClose={() => setDetailItem(null)} />
+      )}
 
       {toast && (
         <Toast
