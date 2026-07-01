@@ -1,5 +1,7 @@
 """Job creation, listing, and item retry."""
 
+from datetime import datetime, timezone
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -118,22 +120,36 @@ def _item_to_dict(item: Item) -> dict:
     }
 
 
-def retry_failed_item(db: Session, user_id: int, item_id: int) -> dict:
-    """Re-enqueue a failed item after resetting its state."""
-    item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
-    if item is None:
-        raise NotFoundError()
+_RETRIABLE_STATUSES = (
+    ItemStatus.FAILED.value,
+    ItemStatus.QUEUED.value,
+    ItemStatus.PROCESSING.value,
+)
 
-    if item.status != ItemStatus.FAILED.value:
-        raise ConflictError("Only failed items can be retried.")
 
+def _reset_item_for_processing(item: Item) -> None:
+    """Clear runtime state so a manual retry starts a fresh worker run."""
     item.status = ItemStatus.QUEUED.value
+    item.attempts = 0
     item.error = None
     item.category = None
     item.priority = None
     item.sentiment = None
     item.summary = None
     item.suggested_reply = None
+    item.updated_at = datetime.now(timezone.utc)
+
+
+def retry_item(db: Session, user_id: int, item_id: int) -> dict:
+    """Re-enqueue a failed or stuck item after resetting its state."""
+    item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
+    if item is None:
+        raise NotFoundError()
+
+    if item.status not in _RETRIABLE_STATUSES:
+        raise ConflictError("This item cannot be retried.")
+
+    _reset_item_for_processing(item)
 
     job = _get_user_job(db, user_id, item.job_id)
     if job.status == JobStatus.COMPLETED.value:
@@ -142,5 +158,5 @@ def retry_failed_item(db: Session, user_id: int, item_id: int) -> dict:
     db.commit()
     db.refresh(item)
 
-    enqueue_item(item.id)
+    enqueue_item(item.id, skip_fail_simulation=True)
     return _item_to_dict(item)

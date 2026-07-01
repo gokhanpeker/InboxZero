@@ -135,3 +135,35 @@ def test_successful_processing_writes_ai_result(worker_db: Session):
     assert item.status == ItemStatus.DONE.value
     assert item.category == "billing"
     assert item.summary == "Billing question"
+
+
+def test_manual_retry_skips_fail_simulation(worker_db: Session):
+    user = create_user(worker_db, "manual-retry@example.com")
+    _, items = create_job_with_items(
+        worker_db,
+        user_id=user.id,
+        texts=["This will FAIL on purpose"],
+        item_status=ItemStatus.FAILED.value,
+    )
+    item_id = items[0].id
+    item = worker_db.get(Item, item_id)
+    assert item is not None
+    item.attempts = 1
+    item.error = SIMULATED_FAILURE_MESSAGE
+    worker_db.commit()
+
+    ai_result = {
+        "category": "bug",
+        "priority": "high",
+        "sentiment": "negative",
+        "summary": "Crash report",
+        "suggested_reply": "We are investigating the crash.",
+    }
+
+    with patch("app.worker.processing.analyze_message", return_value=ai_result):
+        process_item_once(item_id, skip_fail_simulation=True)
+
+    refreshed = worker_db.get(Item, item_id)
+    assert refreshed is not None
+    assert refreshed.status == ItemStatus.DONE.value
+    assert refreshed.summary == "Crash report"

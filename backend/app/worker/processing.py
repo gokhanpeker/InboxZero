@@ -72,7 +72,7 @@ def _reset_for_transient_retry(db: Session, item: Item) -> None:
     db.commit()
 
 
-def process_item_once(item_id: int) -> None:
+def process_item_once(item_id: int, *, skip_fail_simulation: bool = False) -> None:
     """Load, claim, and process a single queue item."""
     db = SessionLocal()
     try:
@@ -81,7 +81,7 @@ def process_item_once(item_id: int) -> None:
             logger.info("Skipping item_id=%s — already processed or not claimable", item_id)
             return
 
-        if FAIL_TOKEN in item.input_text:
+        if not skip_fail_simulation and FAIL_TOKEN in item.input_text:
             _mark_failed(db, item, SIMULATED_FAILURE_MESSAGE)
             logger.info("Simulated failure for item_id=%s", item_id)
             return

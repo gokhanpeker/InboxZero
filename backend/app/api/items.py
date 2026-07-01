@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from app.api.deps import CurrentUserId, DbSession
 from app.schemas.items import ItemResponse
-from app.services.job_service import retry_failed_item
+from app.services.job_service import retry_item as retry_item_service
 
 router = APIRouter(tags=["items"])
 
@@ -15,5 +15,5 @@ def retry_item(
     db: DbSession,
     user_id: CurrentUserId,
 ) -> ItemResponse:
-    """Re-enqueue a failed item for background processing."""
-    return ItemResponse(**retry_failed_item(db, user_id, item_id))
+    """Re-enqueue a failed or stuck item for background processing."""
+    return ItemResponse(**retry_item_service(db, user_id, item_id))
