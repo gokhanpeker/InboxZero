@@ -13,6 +13,19 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ]);
 
+const STRIP_RESPONSE_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailers",
+  "transfer-encoding",
+  "upgrade",
+  "content-encoding",
+  "content-length",
+]);
+
 async function proxyRequest(
   request: NextRequest,
   pathSegments: string[],
@@ -23,7 +36,11 @@ async function proxyRequest(
   const headers = new Headers();
   request.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (lower === "host" || HOP_BY_HOP_HEADERS.has(lower)) {
+    if (
+      lower === "host" ||
+      lower === "accept-encoding" ||
+      HOP_BY_HOP_HEADERS.has(lower)
+    ) {
       return;
     }
     headers.set(key, value);
@@ -44,7 +61,7 @@ async function proxyRequest(
 
   backendResponse.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (HOP_BY_HOP_HEADERS.has(lower)) {
+    if (STRIP_RESPONSE_HEADERS.has(lower)) {
       return;
     }
     responseHeaders.set(key, value);

@@ -158,34 +158,74 @@ Three layers prevent duplicate or corrupt processing:
 
 The challenge expects a live Vercel frontend talking to a locally running backend during demo.
 
+### Option A — Vercel Dashboard (recommended)
+
+1. Open [vercel.com/new](https://vercel.com/new) and sign in with GitHub.
+2. Import **gokhanpeker/InboxZero** (or your fork).
+3. Configure the project:
+
+   | Setting | Value |
+   |---------|--------|
+   | Framework Preset | Next.js |
+   | Root Directory | `frontend` |
+   | Build Command | `npm run build` (default) |
+   | Output Directory | `.next` (default) |
+   | Install Command | `npm install` (default) |
+
+4. **Do not deploy yet** — open **Environment Variables** and add:
+
+   | Name | Value | Environments |
+   |------|--------|--------------|
+   | `BACKEND_TUNNEL_URL` | `https://your-subdomain.trycloudflare.com` | Production, Preview, Development |
+
+   Use your real cloudflared URL (see backend steps below). No `NEXT_PUBLIC_` prefix.
+
+5. Click **Deploy**. When the build finishes, copy the production URL (e.g. `https://inboxzero-xxx.vercel.app`).
+
+6. Add the live URL to this README submission checklist when ready.
+
+### Option B — Vercel CLI
+
+```bash
+cd frontend
+npx vercel login          # one-time browser auth
+npx vercel link           # link to a Vercel project
+npx vercel env add BACKEND_TUNNEL_URL   # paste tunnel URL when prompted
+npx vercel --prod
+```
+
 ### Backend (laptop)
 
 Keep Docker Compose running:
 
 ```bash
 docker compose up -d
+docker compose run --rm api alembic upgrade head   # first time only
 ```
 
-Expose the API through cloudflared:
+Expose the API through cloudflared (leave this terminal open during demo):
 
 ```bash
-cloudflared tunnel --url http://localhost:8000
+cloudflared tunnel --url http://127.0.0.1:8000
 ```
 
-Copy the generated `*.trycloudflare.com` URL.
+Copy the `https://….trycloudflare.com` URL into Vercel as `BACKEND_TUNNEL_URL`, then **Redeploy** if you already deployed without it.
 
-### Frontend (Vercel)
+Verify the tunnel:
 
-1. Import the repo and set the root directory to `frontend`.
-2. Add a server-side environment variable (no `NEXT_PUBLIC_` prefix):
+```bash
+curl https://YOUR-TUNNEL.trycloudflare.com/health
+# → {"status":"ok"}
+```
 
-   ```
-   BACKEND_TUNNEL_URL=https://your-tunnel.trycloudflare.com
-   ```
+### Demo day checklist
 
-3. Deploy. Browser requests to `/api/*` are proxied to your tunnel URL server-side via the route handler.
+1. `docker compose up -d` — API + worker + Postgres + Redis running
+2. `cloudflared tunnel --url http://127.0.0.1:8000` — tunnel active
+3. Vercel `BACKEND_TUNNEL_URL` matches the current tunnel URL (tunnel URL changes each time unless you use a named tunnel)
+4. Open your Vercel URL → register → submit a batch → watch live progress
 
-During demo: laptop on, Docker stack running, tunnel active.
+**Note:** If the tunnel URL changes, update `BACKEND_TUNNEL_URL` in Vercel and redeploy (or use Vercel env + redeploy from the dashboard without a full rebuild — **Redeploy** from Deployments tab after updating env).
 
 ## Development
 
